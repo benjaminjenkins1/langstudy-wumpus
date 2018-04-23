@@ -52,3 +52,33 @@ sendText s v = insertHeader HdrContentLength (show (length txt))
              $ insertHeader HdrContentEncoding "text/plain"
              $ (respond s :: Response String) {rspBody = txt}
     where txt = encodeString v
+
+data Room = Room { adjA :: Int
+                 , adjB :: Int
+                 , adjC :: Int
+                 , wumpus :: Bool
+                 , bats :: Bool
+                 , pit :: Bool
+                 } deriving (Show)
+
+gameMap = [ Room 3  2  20 False False False
+          , Room 4  6  1  False False False
+          , Room 7  5  1  False False False
+          , Room 5  10 2  False False False
+          , Room 3  11 4  False False False
+          , Room 2  8  19 False False False
+          , Room 18 9  3  False False False
+          , Room 10 12 6  False False False
+          , Room 7  15 11 False False False
+          , Room 13 8  4  False False False
+          , Room 9  13 15 False False False
+          , Room 14 16 8  False False False
+          , Room 14 10 11 False False False
+          , Room 13 15 12 False False False
+          , Room 9  17 14 False False False
+          , Room 12 17 19 False False False
+          , Room 15 18 6  False False False
+          , Room 7  20 17 False False False
+          , Room 20 6  16 False False False
+          , Room 18 1  19 False False False
+          ]
