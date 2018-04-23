@@ -27,6 +27,7 @@ dependencies:
 - network-uri >= 2.6.1
 - utf8-string
 - HTTP
+- url >= 2.1 && <3
 
 library:
   source-dirs: src
