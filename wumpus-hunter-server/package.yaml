@@ -1,10 +1,10 @@
 name:                wumpus-hunter-server
 version:             0.1.0.0
-github:              "githubuser/wumpus-hunter-server"
-license:             BSD3
-author:              "Author name here"
-maintainer:          "example@example.com"
-copyright:           "2018 Author name here"
+github:              "benjaminjenkins1/langstudy-wumpus"
+license:             MIT
+author:              "Benjamin Jenkins and Elijah Johnson"
+maintainer:          "benjamin.jenkins1@marist.edu"
+copyright:           "2018 Benjamin Jenkins"
 
 extra-source-files:
 - README.md
@@ -21,6 +21,12 @@ description:         Please see the README on Github at <https://github.com/gith
 
 dependencies:
 - base >= 4.7 && < 5
+- random >= 1.1
+- json
+- http-server >= 1.0.6
+- network-uri >= 2.6.1
+- utf8-string
+- HTTP
 
 library:
   source-dirs: src
