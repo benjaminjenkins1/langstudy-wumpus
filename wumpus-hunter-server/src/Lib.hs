@@ -1,7 +1,9 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 
 module Lib
-    ( gameServer
+    ( gameServer,
+      GameMap,
+      newGame
     ) where
 
 import Codec.Binary.UTF8.String
@@ -23,37 +25,37 @@ import Network.HTTP.Server.Logger (stdLogger)
 import Network.URL
 import System.Random (getStdGen,randomR)
 import System.Environment (getArgs)
-import Text.JSON.Generic
 import Data.IORef
 
-gameServer :: IORef Int -> IO ()
-gameServer ref = do
+gameServer :: IORef GameMap -> IO ()
+gameServer gameState = do
   args <- map read <$> getArgs
   let port = if null args then 8889 else head args
-  serverWith defaultConfig {srvLog = stdLogger, srvPort = port} $ handleRequest ref
+  putStrLn $ "Listening on port " ++ (show port) ++ "..."
+  serverWith defaultConfig {srvPort = port} $ handleRequest gameState
 
-handleRequest :: IORef Int -> Handler String
-handleRequest ref addr url request
-  | path == "move"  = handleMove direction
-  | path == "shoot" = handleShot direction
-  | path == "count" = countUp ref
+handleRequest :: IORef GameMap -> Handler String
+handleRequest gameState addr url request
+  | path == "move"  = handleMove gameState direction
+  | path == "shoot" = handleShot gameState direction
+  | path == "state" = showState gameState 
   | otherwise       = pathError request
   where path      = url_path url
         direction = fst $ head $ url_params url
 
-handleMove :: String -> IO (Response String)
-handleMove d = return $ sendText OK ("Moving " ++ d ++ "\n")
+handleMove :: IORef GameMap -> String -> IO (Response String)
+handleMove gameState d = return $ sendText OK ("Moving\n")
 
-handleShot :: String -> IO (Response String)
-handleShot d = return $ sendText OK ("Shooting " ++ d ++ "\n")
+handleShot :: IORef GameMap -> String -> IO (Response String)
+handleShot gameState d = return $ sendText OK ("Shooting\n")
 
 pathError :: (Show a) => a -> IO (Response String)
 pathError request = return $ sendText OK ("Bad Path\n" ++ (show request))
 
-countUp ref = do
-  modifyIORef ref (+1)
-  val <- readIORef ref
-  return $ sendText OK ((show val) ++ "\n")
+showState :: IORef GameMap -> IO (Response String)
+showState gameState = do
+  currentState <- readIORef gameState
+  return $ sendText OK (show currentState) 
 
 sendText :: StatusCode -> String -> Response String
 sendText s v = insertHeader HdrContentLength (show (length txt))
@@ -68,15 +70,15 @@ data Room = Room { adjA :: Int
                  , wumpus :: Bool
                  , bats :: Bool
                  , pit :: Bool
-                 } deriving (Show, Data)
+                 } deriving (Show)
 
 data Position = Position { current :: Int
                          , previous :: Int
-                         } deriving (Show, Data)
+                         } deriving (Show)
 
-data GameMap = GameMap [Room] deriving (Show, Data)
+data GameMap = GameMap ([Room], Position) deriving (Show)
 
-gameMap =  GameMap [ Room 3  2  20 False False False
+newGame =  GameMap ([ Room 3  2  20 False False False
                     , Room 4  6  1  False False False
                     , Room 7  5  1  False False False
                     , Room 5  10 2  False False False
@@ -96,4 +98,4 @@ gameMap =  GameMap [ Room 3  2  20 False False False
                     , Room 7  20 17 False False False
                     , Room 20 6  16 False False False
                     , Room 18 1  19 False False False
-                    ]
+                    ], Position 1 20)
