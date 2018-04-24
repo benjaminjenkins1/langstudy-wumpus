@@ -38,7 +38,7 @@ handleRequest :: IORef GameMap -> Handler String
 handleRequest gameState addr url request
   | path == "move"  = handleMove gameState direction
   | path == "shoot" = handleShot gameState direction
-  | path == "state" = showState gameState 
+  | path == "state" = showState gameState -- For debugging
   | otherwise       = pathError request
   where path      = url_path url
         direction = fst $ head $ url_params url
@@ -52,6 +52,7 @@ handleShot gameState d = return $ sendText OK ("Shooting\n")
 pathError :: (Show a) => a -> IO (Response String)
 pathError request = return $ sendText OK ("Bad Path\n" ++ (show request))
 
+-- For debugging
 showState :: IORef GameMap -> IO (Response String)
 showState gameState = do
   currentState <- readIORef gameState
@@ -78,24 +79,24 @@ data Position = Position { current :: Int
 
 data GameMap = GameMap ([Room], Position) deriving (Show)
 
-newGame =  GameMap ([ Room 3  2  20 False False False
-                    , Room 4  6  1  False False False
-                    , Room 7  5  1  False False False
-                    , Room 5  10 2  False False False
-                    , Room 3  11 4  False False False
-                    , Room 2  8  19 False False False
-                    , Room 18 9  3  False False False
-                    , Room 10 12 6  False False False
-                    , Room 7  15 11 False False False
-                    , Room 13 8  4  False False False
-                    , Room 9  13 15 False False False
-                    , Room 14 16 8  False False False
-                    , Room 14 10 11 False False False
-                    , Room 13 15 12 False False False
-                    , Room 9  17 14 False False False
-                    , Room 12 17 19 False False False
-                    , Room 15 18 6  False False False
-                    , Room 7  20 17 False False False
-                    , Room 20 6  16 False False False
-                    , Room 18 1  19 False False False
-                    ], Position 1 20)
+newGame =  GameMap ([ Room 2  1  19 False False False
+                    , Room 3  5  0  False False False
+                    , Room 6  4  0  False False False
+                    , Room 4  9  1  False False False
+                    , Room 2  10 3  False False False
+                    , Room 1  7  18 False False False
+                    , Room 17 8  2  False False False
+                    , Room 9  11 5  False False False
+                    , Room 6  14 10 False False False
+                    , Room 12 7  3  False False False
+                    , Room 8  12 14 False False False
+                    , Room 13 15 7  False False False
+                    , Room 13 9  10 False False False
+                    , Room 12 14 11 False False False
+                    , Room 8  16 15 False False False
+                    , Room 11 16 18 False False False
+                    , Room 14 17 5  False False False
+                    , Room 6  19 16 False False False
+                    , Room 19 5  15 False False False
+                    , Room 17 0  18 False False False
+                    ], Position 0 19)
