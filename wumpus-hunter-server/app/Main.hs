@@ -5,5 +5,5 @@ import Data.IORef
 
 main :: IO ()
 main = do
-  gameState <- newIORef (newGame :: GameMap)
+  gameState <- newIORef (newGame :: GameState)
   gameServer gameState
