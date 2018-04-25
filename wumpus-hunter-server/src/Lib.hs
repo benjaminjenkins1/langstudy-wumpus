@@ -38,25 +38,21 @@ handleRequest :: IORef GameState -> Handler String
 handleRequest gameState addr url request
   | path == "move"  = handleMove gameState direction
   | path == "shoot" = handleShot gameState direction
-  | path == "test"  = testPos gameState
-  | path == "state" = showState gameState -- For debugging
+  | path == "state" = showState gameState
   | otherwise       = pathError request
   where path      = url_path url
         direction = fst $ head $ url_params url
 
 handleMove :: IORef GameState -> String -> IO (Response String)
 handleMove gameState d = do
-  putStrLn "Got a request to move"
-  return $ sendText OK ("Moving\n")
+  putStrLn $ "Client moved"
+  modifyIORef gameState (movePlayer d)
+  newState <- readIORef gameState
+  message <- return $ postMoveMessage newState
+  return $ sendText OK (postMoveMessage newState)
 
 handleShot :: IORef GameState -> String -> IO (Response String)
 handleShot gameState d = return $ sendText OK ("Shooting\n")
-
-testPos :: IORef GameState -> IO (Response String)
-testPos gameState = do
-  modifyIORef gameState changeSomething
-  newState <- readIORef gameState
-  return $ sendText OK (show newState)
 
 pathError :: (Show a) => a -> IO (Response String)
 pathError request = return $ sendText OK ("Bad Path\n" ++ (show request))
@@ -91,29 +87,65 @@ data GameState = GameState { rooms :: [Room]
                            } deriving (Show)
 
 newGame =  GameState  {rooms = [ Room 2  1  19 False False False
-                              , Room 3  5  0  False False False
-                              , Room 6  4  0  False False False
-                              , Room 4  9  1  False False False
-                              , Room 2  10 3  False False False
-                              , Room 1  7  18 False False False
-                              , Room 17 8  2  False False False
-                              , Room 9  11 5  False False False
-                              , Room 6  14 10 False False False
-                              , Room 12 7  3  False False False
-                              , Room 8  12 14 False False False
-                              , Room 13 15 7  False False False
-                              , Room 13 9  10 False False False
-                              , Room 12 14 11 False False False
-                              , Room 8  16 15 False False False
-                              , Room 11 16 18 False False False
-                              , Room 14 17 5  False False False
-                              , Room 6  19 16 False False False
-                              , Room 19 5  15 False False False
-                              , Room 17 0  18 False False False
-                              ] , pos = (Position 0 19) }
+                               , Room 3  5  0  False False False
+                               , Room 6  4  0  False False False
+                               , Room 4  9  1  False False False
+                               , Room 2  10 3  False False False
+                               , Room 1  7  18 False False False
+                               , Room 17 8  2  False False False
+                               , Room 9  11 5  False False False
+                               , Room 6  14 10 False False False
+                               , Room 12 7  3  False False False
+                               , Room 8  12 14 False False False
+                               , Room 13 15 7  False False False
+                               , Room 13 9  10 False False False
+                               , Room 12 14 11 False False False
+                               , Room 8  16 15 False False False
+                               , Room 11 16 18 False False False
+                               , Room 14 17 5  False False False
+                               , Room 6  19 16 False False False
+                               , Room 19 5  15 False False False
+                               , Room 17 0  18 False False False
+                               ] , pos = (Position 0 19) }
 
-changeSomething :: GameState -> GameState
-changeSomething gameState =
-  let currentPos = current (pos gameState)
-      newPos = Position (currentPos + 1) currentPos
-  in GameState {rooms=(rooms gameState), pos=newPos}
+-- Move in a direction
+movePlayer :: String -> GameState -> GameState
+movePlayer d gameState = 
+  let currentPos = current $ pos gameState
+      previousPos = previous $ pos gameState
+      roomsList = rooms gameState
+      newPos = nextRoom roomsList currentPos previousPos d
+  in GameState {rooms=(rooms gameState), pos=(Position newPos currentPos)}
+
+
+
+-- Shoot in a direction
+
+
+-- Generate post-move message
+postMoveMessage :: GameState -> String
+postMoveMessage gameState = 
+  let currentPos = current $ pos gameState
+      previousPos = previous $ pos gameState
+  in "You are now in room " ++ (show currentPos) ++ ". You came from room " ++ (show previousPos) ++ ".\n"
+
+-- Utility functions
+
+nextRoom :: [Room] -> Int -> Int -> String -> Int
+nextRoom rooms current previous direction
+  | direction == "L" = nextLeft currentRoom previous
+  | direction == "R" = nextRight currentRoom previous
+  | direction == "B" = previous
+  where currentRoom = rooms !! current
+
+nextLeft :: Room -> Int -> Int
+nextLeft room previous
+  | previous == (adjA room) = adjB room
+  | previous == (adjB room) = adjC room
+  | previous == (adjC room) = adjA room
+
+nextRight :: Room -> Int -> Int
+nextRight room previous
+  | previous == (adjA room) = adjC room
+  | previous == (adjB room) = adjA room
+  | previous == (adjC room) = adjB room
