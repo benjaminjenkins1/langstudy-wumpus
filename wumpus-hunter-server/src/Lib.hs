@@ -26,6 +26,7 @@ import Network.URL
 import System.Random (getStdGen,randomR)
 import System.Environment (getArgs)
 import Data.IORef
+import Data.List
 
 gameServer :: IORef GameState -> IO ()
 gameServer gameState = do
@@ -36,23 +37,25 @@ gameServer gameState = do
 
 handleRequest :: IORef GameState -> Handler String
 handleRequest gameState addr url request
-  | path == "move"  = handleMove gameState direction
+  | path == "moveplayer"  = handleMovePlayer gameState direction
   | path == "shoot" = handleShot gameState direction
   | path == "state" = showState gameState
   | otherwise       = pathError request
   where path      = url_path url
         direction = fst $ head $ url_params url
 
-handleMove :: IORef GameState -> String -> IO (Response String)
-handleMove gameState d = do
-  putStrLn $ "Client moved"
+handleMovePlayer :: IORef GameState -> String -> IO (Response String)
+handleMovePlayer gameState d = do
+  putStrLn "Player moved"
   modifyIORef gameState (movePlayer d)
   newState <- readIORef gameState
   message <- return $ postMoveMessage newState
   return $ sendText OK (postMoveMessage newState)
 
 handleShot :: IORef GameState -> String -> IO (Response String)
-handleShot gameState d = return $ sendText OK ("Shooting\n")
+handleShot gameState d = do
+  putStrLn "Player fired an arrow"
+  return $ sendText OK ("Shooting\n")
 
 pathError :: (Show a) => a -> IO (Response String)
 pathError request = return $ sendText OK ("Bad Path\n" ++ (show request))
@@ -74,8 +77,8 @@ data Room = Room { adjA :: Int
                  , adjB :: Int
                  , adjC :: Int
                  , wumpus :: Bool
-                 , bats :: Bool
                  , pit :: Bool
+                 , bats :: Bool
                  } deriving (Show)
 
 data Position = Position { current :: Int
@@ -84,40 +87,52 @@ data Position = Position { current :: Int
 
 data GameState = GameState { rooms :: [Room]
                            , pos :: Position
+                           , encounteredBats :: Bool
+                           , gameIsOver :: Bool
                            } deriving (Show)
 
-newGame =  GameState  {rooms = [ Room 2  1  19 False False False
-                               , Room 3  5  0  False False False
-                               , Room 6  4  0  False False False
-                               , Room 4  9  1  False False False
-                               , Room 2  10 3  False False False
-                               , Room 1  7  18 False False False
-                               , Room 17 8  2  False False False
-                               , Room 9  11 5  False False False
-                               , Room 6  14 10 False False False
-                               , Room 12 7  3  False False False
-                               , Room 8  12 14 False False False
-                               , Room 13 15 7  False False False
-                               , Room 13 9  10 False False False
-                               , Room 12 14 11 False False False
-                               , Room 8  16 15 False False False
-                               , Room 11 16 18 False False False
-                               , Room 14 17 5  False False False
-                               , Room 6  19 16 False False False
-                               , Room 19 5  15 False False False
-                               , Room 17 0  18 False False False
-                               ] , pos = (Position 0 19) }
+newGame =  GameState  {rooms = [ Room 1  3  2  False False False
+                               , Room 0  4  18 True  False False
+                               , Room 5  0  6  False False False
+                               , Room 19 7  0  False False False
+                               , Room 10 1 5   False False False
+                               , Room 8  4  2  False True  False
+                               , Room 7  9  2  False False False
+                               , Room 6  3  14 False False True
+                               , Room 5  9  11 False False False
+                               , Room 6  13 8  False True  False
+                               , Room 4  11 15 False False False
+                               , Room 10 8  12 False False True
+                               , Room 11 13 16 False False False
+                               , Room 12 9  14 False False False
+                               , Room 13 7  17 False False False
+                               , Room 10 16 18 False False False
+                               , Room 12 17 15 False True  False
+                               , Room 16 4  19 False False False
+                               , Room 1  15 19 False False False
+                               , Room 18 17 3  False False False
+                               ]
+                      , pos = (Position 0 3)
+                      , encounteredBats = False
+                      , gameIsOver = False}
 
 -- Move in a direction
 movePlayer :: String -> GameState -> GameState
 movePlayer d gameState = 
-  let currentPos = current $ pos gameState
-      previousPos = previous $ pos gameState
-      roomsList = rooms gameState
-      newPos = nextRoom roomsList currentPos previousPos d
-  in GameState {rooms=(rooms gameState), pos=(Position newPos currentPos)}
-
-
+  let currentPos       = current $ pos gameState
+      previousPos      = previous $ pos gameState
+      roomsList        = rooms gameState
+      wumpusPos        = getWumpusPosition gameState -- Just Int
+      newPos           = nextRoom roomsList currentPos previousPos d
+      batsPositions    = getBatsPositions gameState
+      pitPositions     = getPitPositions gameState
+      didEncounterBats = if elemIndex newPos batsPositions /= Nothing then True else False 
+      gameOver         = if gameIsOver gameState == True 
+                         then True
+                         else if or [elemIndex currentPos pitPositions /= Nothing, Just currentPos == wumpusPos]
+                              then True
+                              else False
+  in GameState {rooms=(rooms gameState), pos=(Position newPos currentPos), encounteredBats = didEncounterBats, gameIsOver = gameOver}
 
 -- Shoot in a direction
 
@@ -125,9 +140,20 @@ movePlayer d gameState =
 -- Generate post-move message
 postMoveMessage :: GameState -> String
 postMoveMessage gameState = 
-  let currentPos = current $ pos gameState
-      previousPos = previous $ pos gameState
-  in "You are now in room " ++ (show currentPos) ++ ". You came from room " ++ (show previousPos) ++ ".\n"
+  let currentPos        = current $ pos gameState
+      previousPos       = previous $ pos gameState
+      wumpusPos         = getWumpusPosition gameState -- Just Int
+      pitPositions      = getPitPositions gameState
+      adjacencyMessages = getAdjacencyMessages
+  in if gameIsOver gameState == True
+     then "The game is over."
+     else if encounteredBats gameState == True
+          then "You were carried to another room by bats.\n"
+          else if elemIndex currentPos pitPositions /= Nothing
+                then "You fell to your death into a pit. RIP.\n"
+                else if Just currentPos == wumpusPos
+                    then "You were mauled by a wumpus. RIP.\n"
+                    else adjacencyMessages gameState currentPos
 
 -- Utility functions
 
@@ -149,3 +175,24 @@ nextRight room previous
   | previous == (adjA room) = adjC room
   | previous == (adjB room) = adjA room
   | previous == (adjC room) = adjB room
+
+getWumpusPosition :: GameState -> Maybe Int
+getWumpusPosition gameState = 
+  let roomsList  = rooms gameState
+      wumpusList = map (\x -> wumpus x) roomsList
+  in elemIndex True wumpusList
+
+getPitPositions :: GameState -> [Int]
+getPitPositions gameState = 
+  let roomsList = rooms gameState
+      pitsList  = map (\x -> pit x) roomsList
+  in elemIndices True pitsList
+
+getBatsPositions :: GameState -> [Int]
+getBatsPositions gameState =
+  let roomsList = rooms gameState
+      batsList  = map (\x -> bats x) roomsList
+  in elemIndices True batsList
+
+getAdjacencyMessages :: GameState -> Int -> String
+getAdjacencyMessages gameState pos = "Adjacency messages\n"
